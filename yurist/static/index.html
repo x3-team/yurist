@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Юрист — приложения к договорам</title>
+<style>
+  :root { --bg:#f6f6f3; --card:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#e2e1dc; --accent:#2f5d50; --warn:#9a5b00; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:16px; border-bottom:1px solid var(--line); background:var(--card); }
+  header h1 { margin:0; font-size:18px; }
+  main { max-width:960px; margin:0 auto; padding:16px; display:grid; gap:16px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  h2 { margin:0 0 12px; font-size:16px; }
+  label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
+  input, select, textarea { width:100%; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; color:inherit; }
+  textarea { min-height:110px; resize:vertical; }
+  button { font:inherit; padding:8px 14px; border-radius:6px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:end; }
+  .row > * { flex:1 1 160px; }
+  .row > button { flex:0 0 auto; }
+  .clients { display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--ink); }
+  .chip.active { border-color:var(--accent); background:var(--accent); color:#fff; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:6px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:13px; color:var(--muted); font-weight:500; }
+  td input { padding:6px 8px; }
+  .num { width:42px; color:var(--muted); }
+  .total { text-align:right; font-weight:600; padding-top:10px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .warn { color:var(--warn); }
+  .hidden { display:none; }
+  .rec { background:#b3261e; border-color:#b3261e; color:#fff; }
+  ul { margin:6px 0; padding-left:18px; }
+  @media (max-width:600px) { .deadline-col { display:none; } }
+</style>
+</head>
+<body>
+<header><h1>Приложения к договорам</h1></header>
+<main>
+  <section>
+    <h2>Клиенты</h2>
+    <div class="clients" id="clients"></div>
+    <p class="muted" id="no-clients">Клиентов пока нет. Загрузите прошлое приложение — сервис сам сделает из него шаблон.</p>
+    <details id="add-box" style="margin-top:12px">
+      <summary>Добавить клиента или обновить шаблон</summary>
+      <form id="add-form" class="row" style="margin-top:10px">
+        <div><label>Название клиента</label><input name="title" placeholder="например, РАТЕП"></div>
+        <div><label>Прошлое приложение (.docx)</label><input name="file" type="file" accept=".docx" required></div>
+        <button type="submit">Загрузить</button>
+      </form>
+      <div id="add-result" class="muted" style="margin-top:10px"></div>
+    </details>
+  </section>
+
+  <section id="work" class="hidden">
+    <h2 id="client-title"></h2>
+    <div class="row">
+      <div><label>НДС</label>
+        <select id="vat-mode">
+          <option value="none">Без НДС</option>
+          <option value="included">В том числе НДС</option>
+          <option value="on_top">НДС сверху</option>
+        </select></div>
+      <div><label>Ставка НДС, %</label><input id="vat-rate" type="number" min="0" max="100"></div>
+      <div><label>Следующий номер</label><input id="next-number"></div>
+      <button class="ghost" id="dl-template" type="button">Скачать шаблон</button>
+    </div>
+
+    <h2 style="margin-top:20px">Что делаем</h2>
+    <label for="text">Напишите или надиктуйте своими словами: задачи, цены, сроки</label>
+    <textarea id="text" placeholder="Например: приложение на ноябрь, работы с 5 ноября по 25 декабря. Доработка отчётов 95 тысяч до конца ноября, интеграция с 1С 150 тысяч к 25 декабря."></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="ghost" id="mic" type="button">🎤 Надиктовать</button>
+      <button id="parse" type="button">Разобрать</button>
+      <span class="muted" id="parse-status"></span>
+    </div>
+
+    <h2 style="margin-top:20px">Приложение</h2>
+    <div class="row">
+      <div><label>Номер</label><input id="annex-number"></div>
+      <div><label>Дата приложения</label><input id="annex-date" type="date"></div>
+      <div><label>Начало работ</label><input id="start-date" type="date"></div>
+      <div><label>Окончание работ</label><input id="end-date" type="date"></div>
+    </div>
+    <table style="margin-top:12px">
+      <thead><tr><th class="num">№</th><th>Задача</th><th class="deadline-col">Срок</th><th style="width:140px">Стоимость, ₽</th><th style="width:30px"></th></tr></thead>
+      <tbody id="tasks"></tbody>
+    </table>
+    <div class="row" style="margin-top:8px">
+      <button class="ghost" id="add-task" type="button">+ Задача</button>
+      <div class="total" id="total"></div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button id="generate" type="button">Скачать приложение (.docx)</button>
+      <span class="muted" id="gen-status"></span>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let clients = [];
+let current = null;
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    let msg = res.statusText;
+    try { msg = (await res.json()).detail || msg; } catch {}
+    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+  }
+  return res;
+}
+
+function download(blob, res) {
+  const cd = res.headers.get("Content-Disposition") || "";
+  const m = cd.match(/filename\*=UTF-8''(.+)$/);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = m ? decodeURIComponent(m[1]) : "приложение.docx";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+async function loadClients(selectId) {
+  clients = await (await api("/api/clients")).json();
+  const box = $("clients");
+  box.innerHTML = "";
+  $("no-clients").classList.toggle("hidden", clients.length > 0);
+  for (const c of clients) {
+    const b = document.createElement("button");
+    b.className = "chip" + (current && current.id === c.id ? " active" : "");
+    b.textContent = c.title;
+    b.onclick = () => selectClient(c.id);
+    box.appendChild(b);
+  }
+  if (selectId) selectClient(selectId);
+}
+
+function selectClient(id) {
+  current = clients.find((c) => c.id === id);
+  document.querySelectorAll(".chip").forEach((b) => b.classList.toggle("active", b.textContent === current.title));
+  $("work").classList.remove("hidden");
+  $("client-title").textContent = current.title;
+  $("vat-mode").value = current.vat_mode;
+  $("vat-rate").value = current.vat_rate;
+  $("next-number").value = current.next_annex_number;
+  $("annex-number").value = current.next_annex_number;
+  $("annex-date").value = new Date().toISOString().slice(0, 10);
+  if (!$("tasks").children.length) addTask();
+  updateTotal();
+}
+
+async function saveClient() {
+  if (!current) return;
+  const body = { vat_mode: $("vat-mode").value, vat_rate: Number($("vat-rate").value) || 0, next_annex_number: $("next-number").value };
+  current = await (await api(`/api/clients/${current.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
+  clients = clients.map((c) => (c.id === current.id ? current : c));
+  updateTotal();
+}
+["vat-mode", "vat-rate", "next-number"].forEach((id) => $(id).addEventListener("change", saveClient));
+
+$("add-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  const out = $("add-result");
+  out.textContent = "Читаю приложение и размечаю шаблон, это займёт до минуты…";
+  try {
+    const r = await (await api("/api/clients", { method: "POST", body: form })).json();
+    const found = r.found.map((f) => `<li>«${escapeHtml(f.value)}» → ${f.variable}</li>`).join("");
+    const warns = r.warnings.map((w) => `<li class="warn">${escapeHtml(w)}</li>`).join("");
+    out.innerHTML = `Готово: шаблон для «${escapeHtml(r.client.title)}». ` +
+      (r.task_table ? "Таблица задач найдена." : '<span class="warn">Таблица задач не найдена.</span>') +
+      `<ul>${found}${warns}</ul>Проверьте шаблон кнопкой «Скачать шаблон».`;
+    e.target.reset();
+    await loadClients(r.client.id);
+  } catch (err) {
+    out.innerHTML = `<span class="warn">${escapeHtml(err.message)}</span>`;
+  }
+};
+
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function addTask(t = {}) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td class="num"></td>
+    <td><input class="t-name" placeholder="Наименование работы"></td>
+    <td class="deadline-col"><input class="t-deadline" type="date"></td>
+    <td><input class="t-cost" type="number" min="0" step="0.01" placeholder="0"></td>
+    <td><button class="ghost" type="button" title="Удалить" style="padding:4px 8px">×</button></td>`;
+  tr.querySelector(".t-name").value = t.name || "";
+  tr.querySelector(".t-deadline").value = t.deadline || "";
+  tr.querySelector(".t-cost").value = t.cost ?? "";
+  tr.querySelector(".t-cost").oninput = updateTotal;
+  tr.querySelector("button").onclick = () => { tr.remove(); renumber(); updateTotal(); };
+  $("tasks").appendChild(tr);
+  renumber();
+}
+function renumber() { [...$("tasks").children].forEach((tr, i) => (tr.querySelector(".num").textContent = i + 1)); }
+$("add-task").onclick = () => addTask();
+
+function collectTasks() {
+  return [...$("tasks").children].map((tr) => ({
+    name: tr.querySelector(".t-name").value.trim(),
+    deadline: tr.querySelector(".t-deadline").value || null,
+    cost: Number(tr.querySelector(".t-cost").value) || 0,
+  })).filter((t) => t.name);
+}
+
+const rub = (n) => n.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function updateTotal() {
+  const sum = collectTasks().reduce((s, t) => s + t.cost, 0);
+  const mode = $("vat-mode").value, rate = Number($("vat-rate").value) || 0;
+  let text = `Итого: ${rub(sum)} ₽`;
+  if (mode === "included") text += ` (в т.ч. НДС ${rate}%: ${rub(sum * rate / (100 + rate))} ₽)`;
+  if (mode === "on_top") text = `Итого с НДС ${rate}%: ${rub(sum * (1 + rate / 100))} ₽`;
+  $("total").textContent = text;
+}
+
+$("parse").onclick = async () => {
+  const text = $("text").value.trim();
+  if (!text) return;
+  $("parse").disabled = true;
+  $("parse-status").textContent = "Разбираю…";
+  try {
+    const a = await (await api(`/api/clients/${current.id}/parse`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) })).json();
+    if (a.annex_number) $("annex-number").value = a.annex_number;
+    if (a.annex_date) $("annex-date").value = a.annex_date;
+    $("start-date").value = a.start_date || "";
+    $("end-date").value = a.end_date || "";
+    $("tasks").innerHTML = "";
+    (a.tasks.length ? a.tasks : [{}]).forEach(addTask);
+    updateTotal();
+    $("parse-status").textContent = "Проверьте поля и скачайте приложение.";
+  } catch (err) {
+    $("parse-status").innerHTML = `<span class="warn">${escapeHtml(err.message)}</span>`;
+  } finally {
+    $("parse").disabled = false;
+  }
+};
+
+$("generate").onclick = async () => {
+  const body = {
+    annex_number: $("annex-number").value.trim() || null,
+    annex_date: $("annex-date").value || null,
+    start_date: $("start-date").value || null,
+    end_date: $("end-date").value || null,
+    tasks: collectTasks(),
+  };
+  const missing = [["start_date", "начало работ"], ["end_date", "окончание работ"]]
+    .filter(([f]) => current.fields.some((x) => x.startsWith(f)) && !body[f]).map(([, n]) => n);
+  if (!body.tasks.length) missing.push("хотя бы одну задачу");
+  if (missing.length) { $("gen-status").innerHTML = `<span class="warn">Укажите ${missing.join(", ")}</span>`; return; }
+  $("gen-status").textContent = "";
+  try {
+    const res = await api(`/api/clients/${current.id}/generate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    download(await res.blob(), res);
+    await loadClients(current.id);
+  } catch (err) {
+    $("gen-status").innerHTML = `<span class="warn">${escapeHtml(err.message)}</span>`;
+  }
+};
+
+$("dl-template").onclick = async () => {
+  const res = await api(`/api/clients/${current.id}/template`);
+  download(await res.blob(), res);
+};
+
+// Голосовой ввод средствами браузера (Chrome, Edge, Safari)
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+if (!Recognition) {
+  $("mic").disabled = true;
+  $("mic").title = "Браузер не поддерживает голосовой ввод, откройте в Chrome или Safari";
+}
+$("mic").onclick = () => {
+  if (rec) { rec.stop(); return; }
+  rec = new Recognition();
+  rec.lang = "ru-RU";
+  rec.continuous = true;
+  rec.interimResults = false;
+  rec.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const t = $("text");
+        t.value = (t.value ? t.value.trimEnd() + " " : "") + e.results[i][0].transcript.trim();
+      }
+    }
+  };
+  rec.onend = () => { rec = null; $("mic").textContent = "🎤 Надиктовать"; $("mic").classList.remove("rec"); };
+  rec.start();
+  $("mic").textContent = "■ Остановить";
+  $("mic").classList.add("rec");
+};
+
+loadClients();
+</script>
+</body>
+</html>
